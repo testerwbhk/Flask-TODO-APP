@@ -31,6 +31,7 @@ def add_task():
 
     if title:
         user = User.query.filter_by(username=session['user']).first()
+
         new_task = Task(
             title=title,
             status='Pending',
@@ -104,3 +105,28 @@ def delete_task(task_id):
         flash('Task not found or not authorized.', 'error')
 
     return redirect(url_for('tasks.view_tasks'))
+
+
+# Task statistics endpoint
+# Returns a summary of the current user's tasks
+@tasks_bp.route('/stats')
+def task_stats():
+    if 'user' not in session:
+        return redirect(url_for('auth.login'))
+
+    user = User.query.filter_by(username=session['user']).first()
+
+    if not user:
+        flash('User not found. Please log in again.', 'error')
+        return redirect(url_for('auth.logout'))
+
+    tasks = Task.query.filter_by(user_id=user.id).all()
+
+    stats = {
+        'total': len(tasks),
+        'pending': sum(1 for t in tasks if t.status.lower() == 'pending'),
+        'working': sum(1 for t in tasks if t.status.lower() == 'working'),
+        'done': sum(1 for t in tasks if t.status.lower() == 'done')
+    }
+
+    return stats
