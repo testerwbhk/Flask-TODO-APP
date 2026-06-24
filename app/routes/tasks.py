@@ -49,7 +49,15 @@ def add_task():
 # Cycle task status: Pending -> Working -> Done -> Pending
 @tasks_bp.route('/toggle/<int:task_id>', methods=['POST'])
 def toggle_status(task_id):
+    if 'user' not in session:
+        return redirect(url_for('auth.login'))
+
     user = User.query.filter_by(username=session['user']).first()
+    
+    if not user:
+        flash('User not found. Please log in again.', 'error')
+        return redirect(url_for('auth.logout'))
+
     task = Task.query.filter_by(id=task_id, user_id=user.id).first()
 
     if task:
@@ -67,10 +75,16 @@ def toggle_status(task_id):
 
 
 # Clear all tasks owned by the current user
-# Route renamed from '/clear' to '/clear-all'
 @tasks_bp.route('/clear-all', methods=['POST'])
 def clear_tasks():
+    if 'user' not in session:
+        return redirect(url_for('auth.login'))
+
     user = User.query.filter_by(username=session['user']).first()
+    
+    if not user:
+        flash('User not found. Please log in again.', 'error')
+        return redirect(url_for('auth.logout'))
 
     Task.query.filter_by(user_id=user.id).delete()
     db.session.commit()
@@ -130,3 +144,29 @@ def task_stats():
     }
 
     return stats
+
+
+# API endpoint to retrieve all tasks in JSON format
+# Useful for documentation, mobile apps, or frontend AJAX requests
+@tasks_bp.route('/export', methods=['GET'])
+def export_tasks():
+    if 'user' not in session:
+        return {'error': 'Unauthorized. Please log in.'}, 401
+
+    user = User.query.filter_by(username=session['user']).first()
+
+    if not user:
+        return {'error': 'User not found.'}, 404
+
+    tasks = Task.query.filter_by(user_id=user.id).all()
+    
+    # Serialize the tasks into a list of dictionaries
+    task_list = [
+        {
+            'id': task.id,
+            'title': task.title,
+            'status': task.status
+        } for task in tasks
+    ]
+
+    return {'tasks': task_list}
